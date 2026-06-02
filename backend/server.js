@@ -12,6 +12,13 @@ const JWT_SECRET = process.env.JWT_SECRET || 'super-secret-key-change-me';
 app.use(cors());
 app.use(express.json());
 
+const ensureDatabaseMigrations = async () => {
+  await pool.query(`
+    ALTER TABLE inventory_log
+    ADD COLUMN IF NOT EXISTS user_id INTEGER REFERENCES users(id) ON DELETE SET NULL
+  `);
+};
+
 // Probar conexión a la DB y sembrar usuarios
 pool.query('SELECT NOW()', async (err, res) => {
   if (err) {
@@ -19,6 +26,8 @@ pool.query('SELECT NOW()', async (err, res) => {
   } else {
     console.log('Conexión a base de datos exitosa.');
     try {
+      await ensureDatabaseMigrations();
+
       // Create admin user if not exists
       const adminRes = await pool.query("SELECT * FROM users WHERE username = 'admin'");
       if (adminRes.rowCount === 0) {
@@ -64,7 +73,7 @@ const requireAdmin = (req, res, next) => {
 // POST /api/login - Autenticación
 app.post('/api/login', async (req, res) => {
   const { username, password } = req.body;
-  
+
   if (!username || !password) return res.status(400).json({ error: 'Faltan credenciales' });
 
   try {
@@ -76,7 +85,7 @@ app.post('/api/login', async (req, res) => {
     if (!isMatch) return res.status(401).json({ error: 'Contraseña incorrecta' });
 
     const token = jwt.sign({ id: user.id, username: user.username, role: user.role }, JWT_SECRET, { expiresIn: '12h' });
-    
+
     res.json({ message: 'Login exitoso', token, role: user.role, username: user.username });
   } catch (err) {
     console.error(err);
@@ -109,6 +118,76 @@ app.get('/api/materials', authenticate, async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Error al obtener los materiales' });
+  }
+});
+
+// GET /api/history - Historial y resumen mensual (Solo ADMIN)
+app.get('/api/history', authenticate, requireAdmin, async (req, res) => {
+  const { date, month } = req.query;
+  const selectedDate = date || new Date().toISOString().slice(0, 10);
+  const selectedMonth = month || selectedDate.slice(0, 7);
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(selectedDate)) {
+    return res.status(400).json({ error: 'Fecha invalida. Usa el formato YYYY-MM-DD.' });
+  }
+
+  if (!/^\d{4}-\d{2}$/.test(selectedMonth)) {
+    return res.status(400).json({ error: 'Mes invalido. Usa el formato YYYY-MM.' });
+  }
+
+  try {
+    const dailyResult = await pool.query(
+      `
+        SELECT
+          il.id,
+          il.material_id,
+          COALESCE(m.name, 'Material eliminado') AS material_name,
+          COALESCE(m.unit, '') AS unit,
+          il.type,
+          il.quantity,
+          il.batch_number,
+          b.total_yield,
+          il.timestamp,
+          COALESCE(u.username, 'Sin usuario') AS username
+        FROM inventory_log il
+        LEFT JOIN materials m ON m.id = il.material_id
+        LEFT JOIN batches b ON b.batch_number = il.batch_number
+        LEFT JOIN users u ON u.id = il.user_id
+        WHERE il.timestamp >= $1::date
+          AND il.timestamp < ($1::date + INTERVAL '1 day')
+        ORDER BY il.timestamp DESC
+      `,
+      [selectedDate]
+    );
+
+    const monthlyResult = await pool.query(
+      `
+        SELECT
+          il.material_id,
+          COALESCE(m.name, 'Material eliminado') AS material_name,
+          COALESCE(m.unit, '') AS unit,
+          il.type,
+          SUM(il.quantity) AS total_quantity,
+          COUNT(*) AS movements_count
+        FROM inventory_log il
+        LEFT JOIN materials m ON m.id = il.material_id
+        WHERE il.timestamp >= ($1 || '-01')::date
+          AND il.timestamp < (($1 || '-01')::date + INTERVAL '1 month')
+        GROUP BY il.material_id, m.name, m.unit, il.type
+        ORDER BY material_name ASC, il.type ASC
+      `,
+      [selectedMonth]
+    );
+
+    res.json({
+      date: selectedDate,
+      month: selectedMonth,
+      dailyMovements: dailyResult.rows,
+      monthlySummary: monthlyResult.rows
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Error al obtener el historial' });
   }
 });
 
@@ -176,13 +255,13 @@ app.delete('/api/materials/:id', authenticate, requireAdmin, async (req, res) =>
     await client.query('BEGIN');
     // Eliminar primero el historial para evitar conflicto de llave foránea
     await client.query('DELETE FROM inventory_log WHERE material_id = $1', [id]);
-    
+
     const result = await client.query('DELETE FROM materials WHERE id = $1 RETURNING *', [id]);
     if (result.rowCount === 0) {
       await client.query('ROLLBACK');
       return res.status(404).json({ error: 'Material no encontrado' });
     }
-    
+
     await client.query('COMMIT');
     res.json({ message: 'Material y su historial fueron eliminados exitosamente' });
   } catch (err) {
@@ -197,7 +276,7 @@ app.delete('/api/materials/:id', authenticate, requireAdmin, async (req, res) =>
 // POST /api/consumption - Registrar consumo (Cualquier usuario logueado)
 app.post('/api/consumption', authenticate, async (req, res) => {
   const { batch_number, total_yield, items } = req.body;
-  
+
   if (!batch_number || !items || items.length === 0) {
     return res.status(400).json({ error: 'Faltan datos requeridos' });
   }
@@ -223,8 +302,8 @@ app.post('/api/consumption', authenticate, async (req, res) => {
       if (updateRes.rowCount === 0) throw new Error(`Material no encontrado: ${material_id}`);
 
       await client.query(
-        'INSERT INTO inventory_log (material_id, type, quantity, batch_number) VALUES ($1, $2, $3, $4)',
-        [material_id, 'CONSUMPTION', quantity, batchId]
+        'INSERT INTO inventory_log (material_id, type, quantity, batch_number, user_id) VALUES ($1, $2, $3, $4, $5)',
+        [material_id, 'CONSUMPTION', quantity, batchId, req.user.id]
       );
     }
     await client.query('COMMIT');
@@ -254,8 +333,8 @@ app.post('/api/restock', authenticate, requireAdmin, async (req, res) => {
     if (updateRes.rowCount === 0) throw new Error(`Material no encontrado: ${material_id}`);
 
     await client.query(
-      'INSERT INTO inventory_log (material_id, type, quantity) VALUES ($1, $2, $3)',
-      [material_id, 'RESTOCK', quantity]
+      'INSERT INTO inventory_log (material_id, type, quantity, user_id) VALUES ($1, $2, $3, $4)',
+      [material_id, 'RESTOCK', quantity, req.user.id]
     );
     await client.query('COMMIT');
     res.status(200).json({ message: 'Restock exitoso', material: updateRes.rows[0] });

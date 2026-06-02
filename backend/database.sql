@@ -15,20 +15,21 @@ CREATE TABLE IF NOT EXISTS batches (
     total_yield NUMERIC(10, 2) NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS users (
+    id SERIAL PRIMARY KEY,
+    username VARCHAR(50) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    role VARCHAR(20) CHECK (role IN ('ADMIN', 'WORKER')) NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS inventory_log (
     id SERIAL PRIMARY KEY,
     material_id VARCHAR(50) REFERENCES materials(id),
     type VARCHAR(20) CHECK (type IN ('CONSUMPTION', 'RESTOCK')),
     quantity NUMERIC(10, 2) NOT NULL,
     batch_number VARCHAR(100) REFERENCES batches(batch_number),
+    user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
     timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS users (
-    id SERIAL PRIMARY KEY,
-    username VARCHAR(50) UNIQUE NOT NULL,
-    password_hash VARCHAR(255) NOT NULL,
-    role VARCHAR(20) CHECK (role IN ('ADMIN', 'WORKER')) NOT NULL
 );
 
 -- Datos de prueba iniciales para materiales
