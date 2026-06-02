@@ -53,6 +53,25 @@ body {
   vertical-align: middle;
 }
 
+.history-panel {
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(17, 24, 39, 0.08);
+  border-radius: 1rem;
+  padding: 1.25rem;
+  box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.08);
+}
+
+.history-table {
+  max-height: 420px;
+  overflow: auto;
+}
+
+.history-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
 .btn-primary-custom {
   background-color: var(--primary);
   border: none;
