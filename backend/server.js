@@ -112,6 +112,26 @@ app.get('/api/materials', authenticate, async (req, res) => {
   }
 });
 
+
+// POST /api/users - Crear usuario (Solo ADMIN)
+app.post('/api/users', authenticate, requireAdmin, async (req, res) => {
+  const { username, password, role } = req.body;
+  if (!username || !password || !role) return res.status(400).json({ error: 'Faltan datos requeridos' });
+  if (password.length < 6) return res.status(400).json({ error: 'La contraseña debe tener al menos 6 caracteres' });
+
+  try {
+    const hash = await bcrypt.hash(password, 10);
+    await pool.query('INSERT INTO users (username, password_hash, role) VALUES ($1, $2, $3)', [username, hash, role]);
+    res.status(201).json({ message: 'Usuario creado exitosamente' });
+  } catch (err) {
+    console.error(err);
+    if (err.code === '23505') { // PostgreSQL unique violation error code
+      return res.status(400).json({ error: 'El nombre de usuario ya existe' });
+    }
+    res.status(500).json({ error: 'Error interno en el servidor al crear usuario' });
+  }
+});
+
 // POST /api/materials - Crear material (Sólo Admin)
 app.post('/api/materials', authenticate, requireAdmin, async (req, res) => {
   const { name, unit, current_stock, reorder_point } = req.body;
@@ -151,19 +171,26 @@ app.put('/api/materials/:id', authenticate, requireAdmin, async (req, res) => {
 // DELETE /api/materials/:id - Eliminar material (Sólo Admin)
 app.delete('/api/materials/:id', authenticate, requireAdmin, async (req, res) => {
   const { id } = req.params;
+  const client = await pool.connect();
   try {
-    // Check if there are logs referencing this material
-    const checkLogs = await pool.query('SELECT * FROM inventory_log WHERE material_id = $1 LIMIT 1', [id]);
-    if (checkLogs.rowCount > 0) {
-      return res.status(400).json({ error: 'No se puede eliminar el material porque tiene registros históricos de consumo o restock.' });
+    await client.query('BEGIN');
+    // Eliminar primero el historial para evitar conflicto de llave foránea
+    await client.query('DELETE FROM inventory_log WHERE material_id = $1', [id]);
+    
+    const result = await client.query('DELETE FROM materials WHERE id = $1 RETURNING *', [id]);
+    if (result.rowCount === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Material no encontrado' });
     }
-
-    const result = await pool.query('DELETE FROM materials WHERE id = $1 RETURNING *', [id]);
-    if (result.rowCount === 0) return res.status(404).json({ error: 'Material no encontrado' });
-    res.json({ message: 'Material eliminado exitosamente' });
+    
+    await client.query('COMMIT');
+    res.json({ message: 'Material y su historial fueron eliminados exitosamente' });
   } catch (err) {
+    await client.query('ROLLBACK');
     console.error(err);
-    res.status(500).json({ error: 'Error al eliminar material' });
+    res.status(500).json({ error: 'Error interno al eliminar material' });
+  } finally {
+    client.release();
   }
 });
 
