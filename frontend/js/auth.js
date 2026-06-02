@@ -1,6 +1,6 @@
 const API_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
   ? 'http://localhost:3000/api' 
-  : 'https://backend-inventario.onrender.com/api'; // <-- REEMPLAZAR con la URL de tu backend en Render
+  : 'https://control-inventario-e8f5.onrender.com'; // <-- REEMPLAZAR con la URL de tu backend en Render
 
 function checkAuth(requiredRole = null) {
   const token = localStorage.getItem('token');
