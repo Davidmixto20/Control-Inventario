@@ -79,12 +79,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
       const row = `
         <tr>
-          <td class="fw-bold text-muted">${date.toLocaleTimeString('es-VE', { hour: '2-digit', minute: '2-digit' })}</td>
-          <td class="fw-bold">${movement.username}</td>
-          <td class="fw-bold ${typeClass}">${typeLabel}</td>
-          <td>${movement.material_name} <span class="text-muted small">(${movement.material_id})</span></td>
-          <td class="fw-bold">${quantity}${unit}</td>
-          <td class="text-muted">${batch}</td>
+          <td data-label="Hora" class="fw-bold text-muted">${date.toLocaleTimeString('es-VE', { hour: '2-digit', minute: '2-digit' })}</td>
+          <td data-label="Usuario" class="fw-bold">${movement.username}</td>
+          <td data-label="Accion" class="fw-bold ${typeClass}">${typeLabel}</td>
+          <td data-label="Material">${movement.material_name} <span class="text-muted small">(${movement.material_id})</span></td>
+          <td data-label="Cantidad" class="fw-bold">${quantity}${unit}</td>
+          <td data-label="Lote" class="text-muted">${batch}</td>
         </tr>
       `;
       historyDayBody.insertAdjacentHTML('beforeend', row);
@@ -107,10 +107,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
       const row = `
         <tr>
-          <td class="fw-bold">${item.material_name}</td>
-          <td class="fw-bold ${typeClass}">${typeLabel}</td>
-          <td class="fw-bold">${total}${unit}</td>
-          <td class="text-muted">${item.movements_count}</td>
+          <td data-label="Material" class="fw-bold">${item.material_name}</td>
+          <td data-label="Tipo" class="fw-bold ${typeClass}">${typeLabel}</td>
+          <td data-label="Total Mes" class="fw-bold">${total}${unit}</td>
+          <td data-label="Mov." class="text-muted">${item.movements_count}</td>
         </tr>
       `;
       historyMonthBody.insertAdjacentHTML('beforeend', row);
@@ -145,13 +145,13 @@ document.addEventListener('DOMContentLoaded', () => {
         
       const row = `
         <tr>
-          <td class="fw-bold text-muted">${mat.id}</td>
-          <td class="fw-bold text-dark">${mat.name}</td>
-          <td class="fs-5 fw-bold">${mat.current_stock}</td>
-          <td class="text-muted">${mat.reorder_point}</td>
-          <td class="text-muted">${mat.unit}</td>
-          <td>${badge}</td>
-          <td>
+          <td data-label="ID" class="fw-bold text-muted">${mat.id}</td>
+          <td data-label="Material" class="fw-bold text-dark">${mat.name}</td>
+          <td data-label="Stock Actual" class="fs-5 fw-bold">${mat.current_stock}</td>
+          <td data-label="Punto Reorden" class="text-muted">${mat.reorder_point}</td>
+          <td data-label="Unidad" class="text-muted">${mat.unit}</td>
+          <td data-label="Estado">${badge}</td>
+          <td data-label="Acciones">
             <div class="d-flex flex-wrap gap-2">
               <button class="btn btn-sm btn-outline-dark fw-bold" onclick="openEditMaterial('${mat.id}')">Editar</button>
               <button class="btn btn-sm btn-outline-danger fw-bold" onclick="deleteMaterial('${mat.id}')">Eliminar</button>

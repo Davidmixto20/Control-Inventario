@@ -106,3 +106,104 @@ body {
   background: rgba(17, 24, 39, 0.95);
   backdrop-filter: blur(10px);
 }
+
+@media (max-width: 767.98px) {
+  .container {
+    padding-left: 0.875rem;
+    padding-right: 0.875rem;
+  }
+
+  .table-custom {
+    background: transparent;
+    box-shadow: none;
+    overflow: visible;
+  }
+
+  .table-responsive.table-custom {
+    overflow-x: visible;
+  }
+
+  .responsive-card-table,
+  .responsive-card-table thead,
+  .responsive-card-table tbody,
+  .responsive-card-table tr,
+  .responsive-card-table td {
+    display: block;
+    width: 100%;
+  }
+
+  .responsive-card-table thead {
+    display: none;
+  }
+
+  .responsive-card-table tbody {
+    display: grid;
+    gap: 0.875rem;
+  }
+
+  .responsive-card-table tr {
+    background: white;
+    border: 1px solid rgba(17, 24, 39, 0.08);
+    border-radius: 0.75rem;
+    box-shadow: 0 4px 14px rgba(17, 24, 39, 0.08);
+    overflow: hidden;
+  }
+
+  .responsive-card-table td {
+    align-items: center;
+    border: 0;
+    border-bottom: 1px solid rgba(17, 24, 39, 0.08);
+    display: flex;
+    gap: 1rem;
+    justify-content: space-between;
+    padding: 0.75rem 0.875rem;
+    text-align: right;
+  }
+
+  .responsive-card-table td:last-child {
+    border-bottom: 0;
+  }
+
+  .responsive-card-table td::before {
+    color: #6b7280;
+    content: attr(data-label);
+    flex: 0 0 42%;
+    font-size: 0.78rem;
+    font-weight: 700;
+    text-align: left;
+    text-transform: uppercase;
+  }
+
+  .responsive-card-table td[colspan] {
+    display: block;
+    text-align: center;
+  }
+
+  .responsive-card-table td[colspan]::before {
+    content: none;
+  }
+
+  .responsive-card-table td[data-label="Acciones"] {
+    align-items: stretch;
+    display: block;
+    text-align: left;
+  }
+
+  .responsive-card-table td[data-label="Acciones"]::before {
+    display: block;
+    margin-bottom: 0.5rem;
+  }
+
+  .responsive-card-table td[data-label="Acciones"] .btn {
+    flex: 1 1 120px;
+  }
+
+  .history-panel {
+    padding: 1rem;
+  }
+
+  .history-table {
+    max-height: none;
+    overflow: visible;
+  }
+}
