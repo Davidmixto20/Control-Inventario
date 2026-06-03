@@ -8,6 +8,7 @@ const jwt = require('jsonwebtoken');
 const app = express();
 const port = process.env.PORT || 3000;
 const JWT_SECRET = process.env.JWT_SECRET || 'super-secret-key-change-me';
+const APP_TIME_ZONE = 'America/Caracas';
 
 app.use(cors());
 app.use(express.json());
@@ -148,16 +149,18 @@ app.get('/api/history', authenticate, requireAdmin, async (req, res) => {
           il.batch_number,
           b.total_yield,
           il.timestamp,
+          TO_CHAR((il.timestamp AT TIME ZONE 'UTC') AT TIME ZONE $2, 'YYYY-MM-DD"T"HH24:MI:SS') AS local_timestamp,
+          TO_CHAR((il.timestamp AT TIME ZONE 'UTC') AT TIME ZONE $2, 'HH24:MI') AS local_time,
+          TO_CHAR((il.timestamp AT TIME ZONE 'UTC') AT TIME ZONE $2, 'YYYY-MM-DD') AS local_date,
           COALESCE(u.username, 'Sin usuario') AS username
         FROM inventory_log il
         LEFT JOIN materials m ON m.id = il.material_id
         LEFT JOIN batches b ON b.batch_number = il.batch_number
         LEFT JOIN users u ON u.id = il.user_id
-        WHERE il.timestamp >= $1::date
-          AND il.timestamp < ($1::date + INTERVAL '1 day')
+        WHERE DATE((il.timestamp AT TIME ZONE 'UTC') AT TIME ZONE $2) = $1::date
         ORDER BY il.timestamp DESC
       `,
-      [selectedDate]
+      [selectedDate, APP_TIME_ZONE]
     );
 
     const monthlyResult = await pool.query(
@@ -171,17 +174,17 @@ app.get('/api/history', authenticate, requireAdmin, async (req, res) => {
           COUNT(*) AS movements_count
         FROM inventory_log il
         LEFT JOIN materials m ON m.id = il.material_id
-        WHERE il.timestamp >= ($1 || '-01')::date
-          AND il.timestamp < (($1 || '-01')::date + INTERVAL '1 month')
+        WHERE TO_CHAR((il.timestamp AT TIME ZONE 'UTC') AT TIME ZONE $2, 'YYYY-MM') = $1
         GROUP BY il.material_id, m.name, m.unit, il.type
         ORDER BY material_name ASC, il.type ASC
       `,
-      [selectedMonth]
+      [selectedMonth, APP_TIME_ZONE]
     );
 
     res.json({
       date: selectedDate,
       month: selectedMonth,
+      timeZone: APP_TIME_ZONE,
       dailyMovements: dailyResult.rows,
       monthlySummary: monthlyResult.rows
     });

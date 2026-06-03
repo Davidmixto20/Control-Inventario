@@ -14,6 +14,7 @@
       <a class="navbar-brand fw-bold" href="#">Inventario Pro (Admin)</a>
       <div class="d-flex align-items-center gap-3">
         <span class="text-light small fw-bold" id="welcome-text"></span>
+        <a class="btn btn-outline-light btn-sm fw-bold" href="history.html">Ver Historial</a>
         <button class="btn btn-outline-light btn-sm fw-bold" data-bs-toggle="modal" data-bs-target="#passwordModal">Cambiar Clave</button>
         <button class="btn btn-outline-danger btn-sm fw-bold" id="logout-btn">Cerrar Sesión</button>
       </div>
@@ -85,69 +86,14 @@
       </div>
     </div>
 
-    <!-- History Panel -->
-    <div class="row mt-4 g-4">
+    <div class="row mt-4">
       <div class="col-12">
-        <div class="history-panel">
-          <div class="d-flex flex-column flex-lg-row align-items-lg-end justify-content-between gap-3 mb-3">
-            <div>
-              <h2 class="h4 fw-bold text-dark mb-1">Historial de Movimientos</h2>
-              <p class="text-muted mb-0">Revisa lo registrado por dia y el recuento acumulado por mes.</p>
-            </div>
-            <div class="d-flex flex-column flex-sm-row gap-2">
-              <div>
-                <label class="form-label small fw-bold text-muted mb-1" for="history-date">Dia</label>
-                <input type="date" class="form-control" id="history-date">
-              </div>
-              <div>
-                <label class="form-label small fw-bold text-muted mb-1" for="history-month">Mes</label>
-                <input type="month" class="form-control" id="history-month">
-              </div>
-            </div>
+        <div class="history-panel d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3">
+          <div>
+            <h2 class="h5 fw-bold text-dark mb-1">Historial de movimientos</h2>
+            <p class="text-muted mb-0">Consulta los consumos y restocks por dia o por mes en una vista separada.</p>
           </div>
-
-          <div class="row g-4">
-            <div class="col-xl-7">
-              <div class="table-responsive table-custom history-table">
-                <table class="table mb-0 responsive-card-table">
-                  <thead>
-                    <tr>
-                      <th>Hora</th>
-                      <th>Usuario</th>
-                      <th>Accion</th>
-                      <th>Material</th>
-                      <th>Cantidad</th>
-                      <th>Lote</th>
-                    </tr>
-                  </thead>
-                  <tbody id="history-day-body">
-                    <tr>
-                      <td colspan="6" class="text-center py-4">Cargando historial...</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
-            <div class="col-xl-5">
-              <div class="table-responsive table-custom history-table">
-                <table class="table mb-0 responsive-card-table">
-                  <thead>
-                    <tr>
-                      <th>Material</th>
-                      <th>Tipo</th>
-                      <th>Total Mes</th>
-                      <th>Mov.</th>
-                    </tr>
-                  </thead>
-                  <tbody id="history-month-body">
-                    <tr>
-                      <td colspan="4" class="text-center py-4">Cargando resumen...</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
+          <a class="btn btn-dark fw-bold" href="history.html">Abrir Historial</a>
         </div>
       </div>
     </div>
