@@ -7,6 +7,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const restockSelect = document.getElementById('restock-material');
   const restockForm = document.getElementById('restock-form');
   const createForm = document.getElementById('create-material-form');
+  const createUserForm = document.getElementById('create-user-form');
   const editForm = document.getElementById('edit-material-form');
   const editMaterialModal = new bootstrap.Modal(document.getElementById('editMaterialModal'));
   let currentMaterials = [];
@@ -160,6 +161,39 @@ document.addEventListener('DOMContentLoaded', () => {
       alert(`Error: ${error.message}`);
     }
   });
+
+  if (createUserForm) {
+    createUserForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const username = document.getElementById('new-username').value.trim();
+      const password = document.getElementById('new-user-password').value;
+      const role = document.getElementById('new-user-role').value;
+      const btn = createUserForm.querySelector('button[type="submit"]');
+
+      btn.disabled = true;
+      btn.textContent = 'Guardando...';
+
+      try {
+        const response = await fetch(`${API_URL}/users`, {
+          method: 'POST',
+          headers: authHeaders(),
+          body: JSON.stringify({ username, password, role })
+        });
+        const data = await response.json();
+        
+        if (!response.ok) throw new Error(data.error || 'Error al crear usuario');
+
+        alert('Usuario creado exitosamente.');
+        createUserForm.reset();
+        bootstrap.Modal.getInstance(document.getElementById('createUserModal')).hide();
+      } catch (error) {
+        alert(error.message);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Guardar Usuario';
+      }
+    });
+  }
 
   loadInventory();
 });
