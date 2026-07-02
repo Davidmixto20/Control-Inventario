@@ -349,6 +349,17 @@ app.post('/api/restock', authenticate, requireAdmin, async (req, res) => {
   }
 });
 
+// GET /api/production-history - Historial de producción (Solo Admin)
+app.get('/api/production-history', authenticate, requireAdmin, async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM batches ORDER BY date DESC LIMIT 50');
+    res.json(result.rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Error al obtener historial' });
+  }
+});
+
 app.listen(port, () => {
   console.log(`Servidor backend corriendo en http://localhost:${port}`);
 });

@@ -10,6 +10,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const createUserForm = document.getElementById('create-user-form');
   const editForm = document.getElementById('edit-material-form');
   const editMaterialModal = new bootstrap.Modal(document.getElementById('editMaterialModal'));
+  const historyTableBody = document.getElementById('history-table-body');
   let currentMaterials = [];
 
   async function loadInventory() {
@@ -195,5 +196,37 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  async function loadProductionHistory() {
+    if (!historyTableBody) return;
+    try {
+      const response = await fetch(`${API_URL}/production-history`, { headers: authHeaders() });
+      if (!response.ok) return;
+      const history = await response.json();
+      historyTableBody.innerHTML = '';
+      if (history.length === 0) {
+        historyTableBody.innerHTML = `<tr><td colspan="3" class="text-center py-4">No hay producción registrada aún.</td></tr>`;
+        return;
+      }
+      history.forEach(item => {
+        const dateStr = new Date(item.date).toLocaleString('es-ES', { 
+          day: '2-digit', month: '2-digit', year: 'numeric', 
+          hour: '2-digit', minute:'2-digit' 
+        });
+        const row = `
+          <tr>
+            <td class="text-muted fw-bold">${dateStr}</td>
+            <td class="fw-bold text-dark">${item.batch_number}</td>
+            <td class="fw-bold text-success fs-5">${item.total_yield}</td>
+          </tr>
+        `;
+        historyTableBody.insertAdjacentHTML('beforeend', row);
+      });
+    } catch (error) {
+      console.error(error);
+      historyTableBody.innerHTML = `<tr><td colspan="3" class="text-center text-danger fw-bold py-4">Error cargando historial de producción.</td></tr>`;
+    }
+  }
+
   loadInventory();
+  loadProductionHistory();
 });
