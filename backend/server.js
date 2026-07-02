@@ -360,6 +360,41 @@ app.get('/api/production-history', authenticate, requireAdmin, async (req, res) 
   }
 });
 
+// DELETE /api/batches/:batch_number - Eliminar lote y revertir consumos (Solo Admin)
+app.delete('/api/batches/:batch_number', authenticate, requireAdmin, async (req, res) => {
+  const { batch_number } = req.params;
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    
+    // Buscar los consumos de este lote
+    const logs = await client.query('SELECT material_id, quantity FROM inventory_log WHERE batch_number = $1', [batch_number]);
+    
+    // Devolver el material al stock
+    for (const log of logs.rows) {
+      await client.query('UPDATE materials SET current_stock = current_stock + $1 WHERE id = $2', [log.quantity, log.material_id]);
+    }
+    
+    // Eliminar los registros de logs y luego el lote
+    await client.query('DELETE FROM inventory_log WHERE batch_number = $1', [batch_number]);
+    const deleteBatch = await client.query('DELETE FROM batches WHERE batch_number = $1 RETURNING *', [batch_number]);
+    
+    if (deleteBatch.rowCount === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Lote no encontrado' });
+    }
+    
+    await client.query('COMMIT');
+    res.json({ message: 'Lote eliminado y stock revertido exitosamente' });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error(err);
+    res.status(500).json({ error: 'Error al eliminar el lote' });
+  } finally {
+    client.release();
+  }
+});
+
 app.listen(port, () => {
   console.log(`Servidor backend corriendo en http://localhost:${port}`);
 });

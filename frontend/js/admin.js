@@ -96,6 +96,20 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
+  window.deleteBatch = async function(batchNumber) {
+    if (!confirm('¿Estás seguro que deseas eliminar este lote de producción? Esto devolverá los materiales descontados al inventario y NO se puede deshacer.')) return;
+    try {
+      const res = await fetch(`${API_URL}/batches/${batchNumber}`, { method: 'DELETE', headers: authHeaders() });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      alert('Lote eliminado correctamente. El inventario ha sido actualizado.');
+      loadInventory();
+      loadProductionHistory();
+    } catch (e) {
+      alert(e.message);
+    }
+  };
+
   createForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     const name = document.getElementById('new-mat-name').value;
@@ -204,7 +218,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const history = await response.json();
       historyTableBody.innerHTML = '';
       if (history.length === 0) {
-        historyTableBody.innerHTML = `<tr><td colspan="3" class="text-center py-4">No hay producción registrada aún.</td></tr>`;
+        historyTableBody.innerHTML = `<tr><td colspan="4" class="text-center py-4">No hay producción registrada aún.</td></tr>`;
         return;
       }
       history.forEach(item => {
@@ -217,13 +231,16 @@ document.addEventListener('DOMContentLoaded', () => {
             <td class="text-muted fw-bold">${dateStr}</td>
             <td class="fw-bold text-dark">${item.batch_number}</td>
             <td class="fw-bold text-success fs-5">${item.total_yield}</td>
+            <td>
+              <button class="btn btn-sm btn-outline-danger fw-bold" onclick="deleteBatch('${item.batch_number}')">Eliminar</button>
+            </td>
           </tr>
         `;
         historyTableBody.insertAdjacentHTML('beforeend', row);
       });
     } catch (error) {
       console.error(error);
-      historyTableBody.innerHTML = `<tr><td colspan="3" class="text-center text-danger fw-bold py-4">Error cargando historial de producción.</td></tr>`;
+      historyTableBody.innerHTML = `<tr><td colspan="4" class="text-center text-danger fw-bold py-4">Error cargando historial de producción.</td></tr>`;
     }
   }
 
