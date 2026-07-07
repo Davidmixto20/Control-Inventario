@@ -317,15 +317,15 @@ app.get('/api/history', authenticate, requireAdmin, async (req, res) => {
         m.unit,
         u.username,
         b.total_yield,
-        TO_CHAR(il.timestamp AT TIME ZONE $2, 'HH24:MI') AS local_time,
-        TO_CHAR(il.timestamp AT TIME ZONE $2, 'YYYY-MM-DD') AS local_date
+        TO_CHAR(il.timestamp, 'HH24:MI') AS local_time,
+        TO_CHAR(il.timestamp, 'YYYY-MM-DD') AS local_date
       FROM inventory_log il
       JOIN materials m ON il.material_id = m.id
       LEFT JOIN users u ON il.user_id = u.id
       LEFT JOIN batches b ON il.batch_id = b.id
-      WHERE TO_CHAR(il.timestamp AT TIME ZONE $2, 'YYYY-MM-DD') = $1
+      WHERE TO_CHAR(il.timestamp, 'YYYY-MM-DD') = $1
       ORDER BY il.timestamp ASC
-    `, [date, timeZone]);
+    `, [date]);
 
     // Resumen mensual
     const monthlyResult = await pool.query(`
@@ -338,10 +338,10 @@ app.get('/api/history', authenticate, requireAdmin, async (req, res) => {
         COUNT(*)         AS movements_count
       FROM inventory_log il
       JOIN materials m ON il.material_id = m.id
-      WHERE TO_CHAR(il.timestamp AT TIME ZONE $2, 'YYYY-MM') = $1
+      WHERE TO_CHAR(il.timestamp, 'YYYY-MM') = $1
       GROUP BY m.id, m.name, m.unit, il.type
       ORDER BY m.name ASC, il.type ASC
-    `, [month, timeZone]);
+    `, [month]);
 
     res.json({
       dailyMovements: dailyResult.rows,
