@@ -186,7 +186,6 @@ app.post('/api/consumption', authenticate, async (req, res) => {
       [batch_number, total_yield || 0]
     );
     const batchId = batchRes.rows[0].id;
-    const batchNum = batchRes.rows[0].batch_number;
 
     for (const item of items) {
       const { material_id, quantity } = item;
@@ -199,8 +198,8 @@ app.post('/api/consumption', authenticate, async (req, res) => {
       if (updateRes.rowCount === 0) throw new Error(`Material no encontrado: ${material_id}`);
 
       await client.query(
-        'INSERT INTO inventory_log (material_id, type, quantity, batch_number, user_id) VALUES ($1, $2, $3, $4, $5)',
-        [material_id, 'CONSUMPTION', quantity, batchNum, req.user.id]
+        'INSERT INTO inventory_log (material_id, type, quantity, batch_id, user_id) VALUES ($1, $2, $3, $4, $5)',
+        [material_id, 'CONSUMPTION', quantity, batchId, req.user.id]
       );
     }
 
@@ -268,12 +267,11 @@ app.delete('/api/batches/:id', authenticate, requireAdmin, async (req, res) => {
       await client.query('ROLLBACK');
       return res.status(404).json({ error: 'Lote no encontrado' });
     }
-    const batchNumber = batchRes.rows[0].batch_number;
 
     // Revertir el stock de los consumos de este lote
     const logs = await client.query(
-      'SELECT material_id, quantity FROM inventory_log WHERE batch_number = $1 AND type = $2',
-      [batchNumber, 'CONSUMPTION']
+      'SELECT material_id, quantity FROM inventory_log WHERE batch_id = $1 AND type = $2',
+      [id, 'CONSUMPTION']
     );
     for (const log of logs.rows) {
       await client.query(
@@ -283,7 +281,7 @@ app.delete('/api/batches/:id', authenticate, requireAdmin, async (req, res) => {
     }
 
     // Eliminar logs del lote y luego el lote
-    await client.query('DELETE FROM inventory_log WHERE batch_number = $1', [batchNumber]);
+    await client.query('DELETE FROM inventory_log WHERE batch_id = $1', [id]);
     await client.query('DELETE FROM batches WHERE id = $1', [id]);
 
     await client.query('COMMIT');
