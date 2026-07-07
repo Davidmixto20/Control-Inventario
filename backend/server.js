@@ -6,6 +6,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
 const app = express();
+console.log("===== ESTE ES MI SERVER.JS =====");
 const port = process.env.PORT || 3000;
 const JWT_SECRET = process.env.JWT_SECRET || 'super-secret-key-change-me';
 
@@ -309,7 +310,7 @@ app.get('/api/history', authenticate, requireAdmin, async (req, res) => {
         il.id,
         il.type,
         il.quantity,
-        il.batch_number,
+        b.batch_number,
         il.timestamp,
         m.name  AS material_name,
         m.id    AS material_id,
@@ -321,7 +322,7 @@ app.get('/api/history', authenticate, requireAdmin, async (req, res) => {
       FROM inventory_log il
       JOIN materials m ON il.material_id = m.id
       LEFT JOIN users u ON il.user_id = u.id
-      LEFT JOIN batches b ON il.batch_number = b.batch_number
+      LEFT JOIN batches b ON il.batch_id = b.id
       WHERE TO_CHAR(il.timestamp AT TIME ZONE $2, 'YYYY-MM-DD') = $1
       ORDER BY il.timestamp ASC
     `, [date, timeZone]);
