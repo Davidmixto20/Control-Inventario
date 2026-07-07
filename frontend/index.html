@@ -88,8 +88,12 @@
 
     <div class="row mt-5">
       <div class="col-12">
-        <div class="d-flex justify-content-between align-items-end mb-3">
-          <h3 class="fw-bold text-dark mb-0">Historial de Producción (Lotes)</h3>
+        <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-end mb-3">
+          <h3 class="fw-bold text-dark mb-2 mb-md-0">Historial de Producción (Lotes)</h3>
+          <div>
+            <label class="form-label small fw-bold text-muted mb-1" for="history-week-filter">Filtrar por Semana</label>
+            <input type="week" class="form-control form-control-sm" id="history-week-filter">
+          </div>
         </div>
         <div class="table-responsive table-custom mb-4">
           <table class="table mb-0">

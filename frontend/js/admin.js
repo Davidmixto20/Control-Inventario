@@ -11,7 +11,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const editForm = document.getElementById('edit-material-form');
   const editMaterialModal = new bootstrap.Modal(document.getElementById('editMaterialModal'));
   const historyTableBody = document.getElementById('history-table-body');
+  const weekFilter = document.getElementById('history-week-filter');
   let currentMaterials = [];
+  let currentHistory = [];
 
   async function loadInventory() {
     try {
@@ -96,10 +98,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
-  window.deleteBatch = async function(batchNumber) {
+  window.deleteBatch = async function(id) {
     if (!confirm('¿Estás seguro que deseas eliminar este lote de producción? Esto devolverá los materiales descontados al inventario y NO se puede deshacer.')) return;
     try {
-      const res = await fetch(`${API_URL}/batches/${batchNumber}`, { method: 'DELETE', headers: authHeaders() });
+      const res = await fetch(`${API_URL}/batches/${id}`, { method: 'DELETE', headers: authHeaders() });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       alert('Lote eliminado correctamente. El inventario ha sido actualizado.');
@@ -210,34 +212,61 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  function getWeekNumber(d) {
+    d = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+    d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay()||7));
+    var yearStart = new Date(Date.UTC(d.getUTCFullYear(),0,1));
+    var weekNo = Math.ceil(( ( (d - yearStart) / 86400000) + 1)/7);
+    return d.getUTCFullYear() + "-W" + (weekNo < 10 ? '0' : '') + weekNo;
+  }
+
+  function renderProductionHistory(history) {
+    historyTableBody.innerHTML = '';
+    
+    let filteredHistory = history;
+    if (weekFilter && weekFilter.value) {
+      filteredHistory = history.filter(item => {
+        return getWeekNumber(new Date(item.date)) === weekFilter.value;
+      });
+    }
+
+    if (filteredHistory.length === 0) {
+      historyTableBody.innerHTML = `<tr><td colspan="4" class="text-center py-4">No hay producción registrada.</td></tr>`;
+      return;
+    }
+    
+    filteredHistory.forEach(item => {
+      const dateStr = new Date(item.date).toLocaleString('es-ES', { 
+        day: '2-digit', month: '2-digit', year: 'numeric', 
+        hour: '2-digit', minute:'2-digit' 
+      });
+      const row = `
+        <tr>
+          <td class="text-muted fw-bold">${dateStr}</td>
+          <td class="fw-bold text-dark">${item.batch_number}</td>
+          <td class="fw-bold text-success fs-5">${item.total_yield}</td>
+          <td>
+            <button class="btn btn-sm btn-outline-danger fw-bold" onclick="deleteBatch('${item.id}')">Eliminar</button>
+          </td>
+        </tr>
+      `;
+      historyTableBody.insertAdjacentHTML('beforeend', row);
+    });
+  }
+
+  if (weekFilter) {
+    weekFilter.addEventListener('change', () => {
+      renderProductionHistory(currentHistory);
+    });
+  }
+
   async function loadProductionHistory() {
     if (!historyTableBody) return;
     try {
       const response = await fetch(`${API_URL}/production-history`, { headers: authHeaders() });
       if (!response.ok) return;
-      const history = await response.json();
-      historyTableBody.innerHTML = '';
-      if (history.length === 0) {
-        historyTableBody.innerHTML = `<tr><td colspan="4" class="text-center py-4">No hay producción registrada aún.</td></tr>`;
-        return;
-      }
-      history.forEach(item => {
-        const dateStr = new Date(item.date).toLocaleString('es-ES', { 
-          day: '2-digit', month: '2-digit', year: 'numeric', 
-          hour: '2-digit', minute:'2-digit' 
-        });
-        const row = `
-          <tr>
-            <td class="text-muted fw-bold">${dateStr}</td>
-            <td class="fw-bold text-dark">${item.batch_number}</td>
-            <td class="fw-bold text-success fs-5">${item.total_yield}</td>
-            <td>
-              <button class="btn btn-sm btn-outline-danger fw-bold" onclick="deleteBatch('${item.batch_number}')">Eliminar</button>
-            </td>
-          </tr>
-        `;
-        historyTableBody.insertAdjacentHTML('beforeend', row);
-      });
+      currentHistory = await response.json();
+      renderProductionHistory(currentHistory);
     } catch (error) {
       console.error(error);
       historyTableBody.innerHTML = `<tr><td colspan="4" class="text-center text-danger fw-bold py-4">Error cargando historial de producción.</td></tr>`;

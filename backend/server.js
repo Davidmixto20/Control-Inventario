@@ -267,6 +267,77 @@ app.delete('/api/materials/:id', authenticate, requireAdmin, async (req, res) =>
 
     await client.query('COMMIT');
     res.json({ message: 'Material y su historial fueron eliminados exitosamente' });
+app.post('/api/users', authenticate, requireAdmin, async (req, res) => {
+  const { username, password, role } = req.body;
+  if (!username || !password || !role) return res.status(400).json({ error: 'Faltan datos requeridos' });
+  if (password.length < 6) return res.status(400).json({ error: 'La contraseña debe tener al menos 6 caracteres' });
+
+  try {
+    const hash = await bcrypt.hash(password, 10);
+    await pool.query('INSERT INTO users (username, password_hash, role) VALUES ($1, $2, $3)', [username, hash, role]);
+    res.status(201).json({ message: 'Usuario creado exitosamente' });
+  } catch (err) {
+    console.error(err);
+    if (err.code === '23505') { // PostgreSQL unique violation error code
+      return res.status(400).json({ error: 'El nombre de usuario ya existe' });
+    }
+    res.status(500).json({ error: 'Error interno en el servidor al crear usuario' });
+  }
+});
+
+// POST /api/materials - Crear material (Sólo Admin)
+app.post('/api/materials', authenticate, requireAdmin, async (req, res) => {
+  const { name, unit, current_stock, reorder_point } = req.body;
+  if (!name || !unit) return res.status(400).json({ error: 'Nombre y unidad son requeridos' });
+
+  try {
+    const result = await pool.query(
+      'INSERT INTO materials (name, unit, current_stock, reorder_point) VALUES ($1, $2, $3, $4) RETURNING *',
+      [name, unit, current_stock || 0, reorder_point || 0]
+    );
+    res.status(201).json(result.rows[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Error al crear material' });
+  }
+});
+
+// PUT /api/materials/:id - Editar material (Sólo Admin)
+app.put('/api/materials/:id', authenticate, requireAdmin, async (req, res) => {
+  const { id } = req.params;
+  const { name, unit, reorder_point } = req.body;
+  if (!name || !unit) return res.status(400).json({ error: 'Nombre y unidad son requeridos' });
+
+  try {
+    const result = await pool.query(
+      'UPDATE materials SET name = $1, unit = $2, reorder_point = $3 WHERE id = $4 RETURNING *',
+      [name, unit, reorder_point || 0, id]
+    );
+    if (result.rowCount === 0) return res.status(404).json({ error: 'Material no encontrado' });
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Error al actualizar material' });
+  }
+});
+
+// DELETE /api/materials/:id - Eliminar material (Sólo Admin)
+app.delete('/api/materials/:id', authenticate, requireAdmin, async (req, res) => {
+  const { id } = req.params;
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    // Eliminar primero el historial para evitar conflicto de llave foránea
+    await client.query('DELETE FROM inventory_log WHERE material_id = $1', [id]);
+
+    const result = await client.query('DELETE FROM materials WHERE id = $1 RETURNING *', [id]);
+    if (result.rowCount === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Material no encontrado' });
+    }
+
+    await client.query('COMMIT');
+    res.json({ message: 'Material y su historial fueron eliminados exitosamente' });
   } catch (err) {
     await client.query('ROLLBACK');
     console.error(err);
@@ -279,7 +350,7 @@ app.delete('/api/materials/:id', authenticate, requireAdmin, async (req, res) =>
 // POST /api/consumption - Registrar consumo (Cualquier usuario logueado)
 app.post('/api/consumption', authenticate, async (req, res) => {
   const { batch_number, total_yield, items } = req.body;
-
+  
   if (!batch_number || !items || items.length === 0) {
     return res.status(400).json({ error: 'Faltan datos requeridos' });
   }
@@ -289,10 +360,10 @@ app.post('/api/consumption', authenticate, async (req, res) => {
     await client.query('BEGIN');
 
     let batchRes = await client.query(
-      'INSERT INTO batches (batch_number, total_yield) VALUES ($1, $2) ON CONFLICT (batch_number) DO UPDATE SET total_yield = EXCLUDED.total_yield RETURNING id, batch_number',
+      'INSERT INTO batches (batch_number, total_yield) VALUES ($1, $2) RETURNING id',
       [batch_number, total_yield || 0]
     );
-    const batchId = batchRes.rows[0].batch_number;
+    const batchId = batchRes.rows[0].id;
 
     for (let item of items) {
       const { material_id, quantity } = item;
@@ -305,17 +376,9 @@ app.post('/api/consumption', authenticate, async (req, res) => {
       if (updateRes.rowCount === 0) throw new Error(`Material no encontrado: ${material_id}`);
 
       await client.query(
-        'INSERT INTO inventory_log (material_id, type, quantity, batch_number, user_id) VALUES ($1, $2, $3, $4, $5)',
+        'INSERT INTO inventory_log (material_id, type, quantity, batch_id, user_id) VALUES ($1, $2, $3, $4, $5)',
         [material_id, 'CONSUMPTION', quantity, batchId, req.user.id]
       );
-    }
-    await client.query('COMMIT');
-    res.status(200).json({ message: 'Consumo registrado exitosamente' });
-  } catch (err) {
-    await client.query('ROLLBACK');
-    res.status(500).json({ error: err.message || 'Error al procesar el consumo' });
-  } finally {
-    client.release();
   }
 });
 
@@ -360,15 +423,15 @@ app.get('/api/production-history', authenticate, requireAdmin, async (req, res) 
   }
 });
 
-// DELETE /api/batches/:batch_number - Eliminar lote y revertir consumos (Solo Admin)
-app.delete('/api/batches/:batch_number', authenticate, requireAdmin, async (req, res) => {
-  const { batch_number } = req.params;
+// DELETE /api/batches/:id - Eliminar lote y revertir consumos (Solo Admin)
+app.delete('/api/batches/:id', authenticate, requireAdmin, async (req, res) => {
+  const { id } = req.params;
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
     
     // Buscar los consumos de este lote
-    const logs = await client.query('SELECT material_id, quantity FROM inventory_log WHERE batch_number = $1', [batch_number]);
+    const logs = await client.query('SELECT material_id, quantity FROM inventory_log WHERE batch_id = $1', [id]);
     
     // Devolver el material al stock
     for (const log of logs.rows) {
@@ -376,8 +439,8 @@ app.delete('/api/batches/:batch_number', authenticate, requireAdmin, async (req,
     }
     
     // Eliminar los registros de logs y luego el lote
-    await client.query('DELETE FROM inventory_log WHERE batch_number = $1', [batch_number]);
-    const deleteBatch = await client.query('DELETE FROM batches WHERE batch_number = $1 RETURNING *', [batch_number]);
+    await client.query('DELETE FROM inventory_log WHERE batch_id = $1', [id]);
+    const deleteBatch = await client.query('DELETE FROM batches WHERE id = $1 RETURNING *', [id]);
     
     if (deleteBatch.rowCount === 0) {
       await client.query('ROLLBACK');
