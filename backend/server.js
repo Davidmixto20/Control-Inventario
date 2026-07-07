@@ -316,13 +316,13 @@ app.get('/api/history', authenticate, requireAdmin, async (req, res) => {
         m.unit,
         u.username,
         b.total_yield,
-        TO_CHAR(il.timestamp AT TIME ZONE 'America/Caracas', 'HH24:MI') AS local_time,
-        TO_CHAR(il.timestamp AT TIME ZONE 'America/Caracas', 'YYYY-MM-DD') AS local_date
+        TO_CHAR(il.timestamp AT TIME ZONE $2, 'HH24:MI') AS local_time,
+        TO_CHAR(il.timestamp AT TIME ZONE $2, 'YYYY-MM-DD') AS local_date
       FROM inventory_log il
       JOIN materials m ON il.material_id = m.id
       LEFT JOIN users u ON il.user_id = u.id
       LEFT JOIN batches b ON il.batch_number = b.batch_number
-      WHERE TO_CHAR(il.timestamp AT TIME ZONE 'America/Caracas', 'YYYY-MM-DD') = $1
+      WHERE TO_CHAR(il.timestamp AT TIME ZONE $2, 'YYYY-MM-DD') = $1
       ORDER BY il.timestamp ASC
     `, [date, timeZone]);
 
@@ -337,7 +337,7 @@ app.get('/api/history', authenticate, requireAdmin, async (req, res) => {
         COUNT(*)         AS movements_count
       FROM inventory_log il
       JOIN materials m ON il.material_id = m.id
-      WHERE TO_CHAR(il.timestamp AT TIME ZONE 'America/Caracas', 'YYYY-MM') = $1
+      WHERE TO_CHAR(il.timestamp AT TIME ZONE $2, 'YYYY-MM') = $1
       GROUP BY m.id, m.name, m.unit, il.type
       ORDER BY m.name ASC, il.type ASC
     `, [month, timeZone]);
@@ -348,8 +348,15 @@ app.get('/api/history', authenticate, requireAdmin, async (req, res) => {
       timeZone
     });
   } catch (err) {
+    console.error("ERROR HISTORY:");
     console.error(err);
-    res.status(500).json({ error: 'Error al obtener el historial' });
+
+    res.status(500).json({
+      error: err.message,
+      detail: err.detail,
+      hint: err.hint,
+      code: err.code
+    });
   }
 });
 
