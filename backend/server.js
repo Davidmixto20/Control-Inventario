@@ -146,7 +146,7 @@ app.get('/api/history', authenticate, requireAdmin, async (req, res) => {
           COALESCE(m.unit, '') AS unit,
           il.type,
           il.quantity,
-          il.batch_number,
+          b.batch_number,
           b.total_yield,
           il.timestamp,
           TO_CHAR((il.timestamp AT TIME ZONE 'UTC') AT TIME ZONE $2, 'YYYY-MM-DD"T"HH24:MI:SS') AS local_timestamp,
@@ -155,7 +155,7 @@ app.get('/api/history', authenticate, requireAdmin, async (req, res) => {
           COALESCE(u.username, 'Sin usuario') AS username
         FROM inventory_log il
         LEFT JOIN materials m ON m.id = il.material_id
-        LEFT JOIN batches b ON b.batch_number = il.batch_number
+        LEFT JOIN batches b ON b.id = il.batch_id
         LEFT JOIN users u ON u.id = il.user_id
         WHERE DATE((il.timestamp AT TIME ZONE 'UTC') AT TIME ZONE $2) = $1::date
         ORDER BY il.timestamp DESC
