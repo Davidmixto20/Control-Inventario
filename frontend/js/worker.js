@@ -2,6 +2,22 @@ document.addEventListener('DOMContentLoaded', () => {
   if (!checkAuth('WORKER')) return;
   setupAuthButtons();
 
+  // ==========================================
+  // CONFIGURACIÓN DE RECETA PREDETERMINADA
+  // ==========================================
+  const DEFAULT_RECIPE = [
+    { name: "Harina de trigo", defaultQuantity: 3000, options: [2900, 3000] },
+    { name: "Harina de maiz", defaultQuantity: 715, options: [640, 715] },
+    { name: "Azucar blanca", defaultQuantity: 750, options: [715, 750] },
+    { name: "Azucar glasc", defaultQuantity: 715, options: [640, 715] },
+    { name: "Margarina", defaultQuantity: 1000, options: [900, 1000] },
+    { name: "Huevos", defaultQuantity: 600, options: [500, 600] },
+    { name: "Cocoa", defaultQuantity: 105, options: [105] },
+    { name: "Aceite", defaultQuantity: 80, options: [80] },
+    { name: "Saborizante", defaultQuantity: 15, options: [10, 15] }
+  ];
+  // ==========================================
+
   document.getElementById('welcome-text').textContent = `Hola, ${localStorage.getItem('username')}`;
   const materialsContainer = document.getElementById('materials-container');
   const inventoryTable = document.getElementById('worker-inventory-table');
@@ -18,8 +34,9 @@ document.addEventListener('DOMContentLoaded', () => {
       if (response.ok) {
         availableMaterials = await response.json();
         renderInventoryTable();
-        // Solo añadir la primera fila vacía si el contenedor está vacío
-        if (materialsContainer.children.length === 0) addMaterialRow(); 
+        if (materialsContainer.children.length === 0) {
+          loadDefaultRecipe();
+        }
       } else {
         alert('Error cargando materiales del servidor.');
       }
@@ -52,34 +69,65 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  function addMaterialRow() {
-    const rowId = Date.now();
+  function loadDefaultRecipe() {
+    DEFAULT_RECIPE.forEach(recipeItem => {
+      const mat = availableMaterials.find(m => {
+        // Ignorar acentos para la busqueda
+        const dbName = m.name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+        const recipeName = recipeItem.name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+        return dbName.includes(recipeName);
+      });
+      if (mat) {
+        addMaterialRow(mat.id, recipeItem.defaultQuantity, recipeItem.options);
+      }
+    });
+    // Añadir una vacía al final
+    addMaterialRow();
+  }
+
+  window.setQuickQuantity = function(rowId, qty) {
+    document.getElementById('qty-' + rowId).value = qty;
+  };
+
+  function addMaterialRow(preselectedId = null, defaultQty = '', quickOptions = []) {
+    const rowId = Date.now() + Math.random().toString().slice(2, 6);
     let options = '<option value="">Seleccionar material...</option>';
     availableMaterials.forEach(mat => {
-      options += `<option value="${mat.id}">${mat.name} (${mat.unit}) - Disp: ${mat.current_stock}</option>`;
+      const isSelected = mat.id === preselectedId ? 'selected' : '';
+      options += `<option value="${mat.id}" ${isSelected}>${mat.name} (${mat.unit}) - Disp: ${mat.current_stock}</option>`;
     });
 
+    let quickOptionsHtml = '';
+    if (quickOptions.length > 0) {
+      quickOptionsHtml = '<div class="mt-2">';
+      quickOptions.forEach(opt => {
+        quickOptionsHtml += `<span class="badge bg-primary me-2 py-2 px-3 shadow-sm" style="cursor:pointer;" onclick="setQuickQuantity('${rowId}', ${opt})">${opt}g</span>`;
+      });
+      quickOptionsHtml += '</div>';
+    }
+
     const rowHtml = `
-      <div class="row mb-3 material-row align-items-end" id="row-${rowId}">
-        <div class="col-md-7 col-12 mb-2 mb-md-0">
+      <div class="row mb-3 material-row align-items-center" id="row-${rowId}">
+        <div class="col-md-5 col-12 mb-2 mb-md-0">
           <label class="form-label text-muted small mb-1 fw-bold">Material</label>
           <select class="form-select material-select" required>
             ${options}
           </select>
         </div>
-        <div class="col-md-3 col-8 mb-2 mb-md-0">
+        <div class="col-md-5 col-8 mb-2 mb-md-0">
           <label class="form-label text-muted small mb-1 fw-bold">Cantidad Utilizada</label>
-          <input type="number" class="form-control material-quantity" step="0.01" min="0.01" required>
+          <input type="number" class="form-control material-quantity" id="qty-${rowId}" step="0.01" min="0.01" value="${defaultQty}" required>
+          ${quickOptionsHtml}
         </div>
-        <div class="col-md-2 col-4 mb-2 mb-md-0">
-          <button type="button" class="btn btn-outline-danger w-100 fw-bold" onclick="document.getElementById('row-${rowId}').remove()">X</button>
+        <div class="col-md-2 col-4 mb-2 mb-md-0 mt-3 mt-md-0 text-end">
+          <button type="button" class="btn btn-outline-danger fw-bold w-100 h-100" onclick="document.getElementById('row-${rowId}').remove()">X</button>
         </div>
       </div>
     `;
     materialsContainer.insertAdjacentHTML('beforeend', rowHtml);
   }
 
-  addMaterialBtn.addEventListener('click', addMaterialRow);
+  addMaterialBtn.addEventListener('click', () => addMaterialRow());
 
   consumptionForm.addEventListener('submit', async (e) => {
     e.preventDefault();
