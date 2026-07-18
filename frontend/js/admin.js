@@ -82,6 +82,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('edit-mat-id').value = material.id;
     document.getElementById('edit-mat-name').value = material.name;
     document.getElementById('edit-mat-unit').value = material.unit;
+    document.getElementById('edit-mat-stock').value = material.current_stock;
     document.getElementById('edit-mat-reorder').value = material.reorder_point;
     editMaterialModal.show();
   };
@@ -138,13 +139,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const id = document.getElementById('edit-mat-id').value;
     const name = document.getElementById('edit-mat-name').value.trim();
     const unit = document.getElementById('edit-mat-unit').value.trim();
+    const current_stock = parseFloat(document.getElementById('edit-mat-stock').value);
     const reorder_point = parseFloat(document.getElementById('edit-mat-reorder').value);
 
     try {
       const res = await fetch(`${API_URL}/materials/${id}`, {
         method: 'PUT',
         headers: authHeaders(),
-        body: JSON.stringify({ name, unit, reorder_point })
+        body: JSON.stringify({ name, unit, reorder_point, current_stock })
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Error al editar material');

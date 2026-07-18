@@ -133,12 +133,12 @@ app.post('/api/materials', authenticate, requireAdmin, async (req, res) => {
 
 app.put('/api/materials/:id', authenticate, requireAdmin, async (req, res) => {
   const { id } = req.params;
-  const { name, unit, reorder_point } = req.body;
+  const { name, unit, reorder_point, current_stock } = req.body;
   if (!name || !unit) return res.status(400).json({ error: 'Nombre y unidad son requeridos' });
   try {
     const result = await pool.query(
-      'UPDATE materials SET name = $1, unit = $2, reorder_point = $3 WHERE id = $4 RETURNING *',
-      [name, unit, reorder_point || 0, id]
+      'UPDATE materials SET name = $1, unit = $2, reorder_point = $3, current_stock = COALESCE($5, current_stock) WHERE id = $4 RETURNING *',
+      [name, unit, reorder_point || 0, id, current_stock !== undefined ? current_stock : null]
     );
     if (result.rowCount === 0) return res.status(404).json({ error: 'Material no encontrado' });
     res.json(result.rows[0]);
